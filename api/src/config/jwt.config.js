@@ -24,5 +24,12 @@ getTokenData: (token) => {
     }
   }
   return data;
-}
+},
+generateLoginToken: (payload) => {
+  if (secret === undefined) {
+    throw new Error("JWT_KEY not defined");
+  } else {
+    return jwt.sign(payload, secret || "", { expiresIn: "15m" });
+  } 
+},
 }

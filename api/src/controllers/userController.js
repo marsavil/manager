@@ -1,7 +1,7 @@
 const { User } = require("../db");
 const bcrypt = require("bcrypt");
 const { v4 } = require("uuid");
-const { generateRegistrationToken, getTokenData } = require("../config/jwt.config");
+const { generateRegistrationToken, getTokenData, generateLoginToken } = require("../config/jwt.config");
 const { getTemplate, sendEmail } = require("../config/mail.config");
 const dotenv = require("dotenv");
 dotenv.config();
@@ -135,4 +135,56 @@ module.exports = {
       }
     }
   },
+  loginUser: async (req, res) => {
+    try {
+      const { email, password } = req.body
+      if (!email || !password) {
+        return res
+          .status(400)
+          .send({ message: "You must enter a valid email and a password" });
+      }
+      const userDb = await User.findOne({
+        where: {
+          email
+        }
+      })
+      if ( !userDb ){
+        return res.status(400).send({message: `No user registered with ${email}` })
+      }
+      if (userDb.verified === false) {
+        return res.status(400).send({
+          message: "You must confirm your account before loging in. Check your inbox",
+        });
+      }
+      const passwordMatch = await bcrypt.compare(password, userDb.password);
+      if (passwordMatch) {
+        let today = new Date();
+        let now = today.toLocaleDateString('en-US')
+        userDb.last_login = now; 
+        await userDb.save();
+
+        const userFormated = {
+          id: userDb.id,
+          email: userDb.email,
+          id_type: userDb.id_type,
+          verified: userDb.verified,
+          username: userDb.username,
+          name: userDb.name,
+          last_login: userDb.last_login,
+          last_logout: userDb.last_logout
+        };
+        const token = generateLoginToken(userFormated);
+        const payload = {
+          ...userFormated,
+          token,
+        };
+        return res.status(200).json(payload);
+      } else {
+        return res.status(400).send({ message: "Wronng password" });
+      }
+
+    } catch (error) {
+      res.send({message: error.message})
+    }
+  }
 }
