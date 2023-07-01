@@ -1,8 +1,8 @@
 
 
 module.exports = {
-  getAffiliateCode : (length) => {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890";
+  getCode : (length) => {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz12345678900";
     let code = "";
     let i;
     while (code.length < length){

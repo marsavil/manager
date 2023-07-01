@@ -1,8 +1,9 @@
-const { User } = require("../db");
+const { User, Affiliate_link, Referral } = require("../db");
 const bcrypt = require("bcrypt");
 const { v4 } = require("uuid");
 const { generateRegistrationToken, getTokenData, generateLoginToken } = require("../config/jwt.config");
-const { getTemplate, sendEmail } = require("../config/mail.config");
+const { getTemplate, sendEmail, getRegistrationTemplate } = require("../config/mail.config");
+const { getCode } = require("../config/code.confg")
 const dotenv = require("dotenv");
 dotenv.config();
 const sender = process.env.EMAIL;
@@ -75,6 +76,38 @@ module.exports = {
       });
     }
   },
+  referralToAffiliate: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const referral = await Referral.findOne({
+        where: {
+          id
+        }
+      });
+      const code = v4();
+      let defaultPass = getCode(8)
+      let passwordHashed = await bcrypt.hash(defaultPass, ROUNDS);
+      const newUser = await User.create({
+        name: referral.name,
+        id_type: 3,
+        username: referral.email,
+        email: referral.email,
+        password: passwordHashed,
+        code
+      })
+      const email = newUser.email
+      const token = generateRegistrationToken({ email, code });
+      const template = getRegistrationTemplate(newUser.name, defaultPass, token);
+      await sendEmail(email, "Validate your account", template);
+
+      return res.json({
+        success: true,
+        msg: "User successfully registered",
+      });
+    } catch (error) {
+      
+    }
+  },
   confirm: async (req, res) => {
     try {
       const { token } = req.params;
@@ -105,6 +138,7 @@ module.exports = {
       await user.save();
       return res.redirect(`${CLIENT_HOST}home`);
     } catch (error) {
+      console.log(error.message)
       return res.json({
         success: false,
         msg: error.message
@@ -160,9 +194,24 @@ module.exports = {
       if (passwordMatch) {
         let today = new Date();
         let now = today.toLocaleDateString('en-US')
-        userDb.last_login = now; 
-        await userDb.save();
-
+        userDb.last_login = now;
+        await userDb.save(); 
+        let link;
+        if (userDb.id_type === 3){
+          link = await Affiliate_link.findOne({
+            where: {
+              id_users: userDb.id
+            }
+          })     
+          if ( !link ){
+            link = Affiliate_link.create({
+              id_users: userDb.id,
+              affiliate_code: getCode(10),
+              creation_date: now
+            })
+          }
+        }
+        
         const userFormated = {
           id: userDb.id,
           email: userDb.email,
@@ -171,7 +220,8 @@ module.exports = {
           username: userDb.username,
           name: userDb.name,
           last_login: userDb.last_login,
-          last_logout: userDb.last_logout
+          last_logout: userDb.last_logout,
+          affiliate_code: link ? link.affiliate_code : null
         };
         const token = generateLoginToken(userFormated);
         const payload = {

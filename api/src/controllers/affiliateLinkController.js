@@ -1,5 +1,5 @@
 const { Affiliate_link, User } = require('../db');
-const { getAffiliateCode } = require('../config/code.confg');
+const { getCode } = require('../config/code.confg');
 const { getTokenData } = require('../config/jwt.config')
 
 module.exports = {
@@ -17,7 +17,7 @@ module.exports = {
       let now = today.toLocaleDateString('en-US')
       await Affiliate_link.create({
         id_users: user.id,
-        affiliate_code: getAffiliateCode(10),
+        affiliate_code: getCode(10),
         creation_date: now
       });
       res.status(200).send({message: "Link created succesfully"})
