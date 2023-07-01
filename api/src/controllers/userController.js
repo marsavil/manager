@@ -109,26 +109,35 @@ module.exports = {
           id
         }
       });
-      const code = v4();
-      let defaultPass = getCode(8)
-      let passwordHashed = await bcrypt.hash(defaultPass, ROUNDS);
-      const newUser = await User.create({
-        name: referral.name,
-        id_type: 3,
-        username: referral.email,
-        email: referral.email,
-        password: passwordHashed,
-        code
+      const user = await User.findOne({
+        where: {
+          email: referral.email
+        }
       })
-      const email = newUser.email
-      const token = generateRegistrationToken({ email, code });
-      const template = getRegistrationTemplate(newUser.name, defaultPass, token);
-      await sendEmail(email, "Validate your account", template);
+      if ( !user ){
+        const code = v4();
+        let defaultPass = getCode(8)
+        let passwordHashed = await bcrypt.hash(defaultPass, ROUNDS);
+        const newUser = await User.create({
+          name: referral.name,
+          id_type: 3,
+          username: referral.email,
+          email: referral.email,
+          password: passwordHashed,
+          code
+        })
+        const email = newUser.email
+        const token = generateRegistrationToken({ email, code });
+        const template = getRegistrationTemplate(newUser.name, defaultPass, token);
+        await sendEmail(email, "Validate your account", template);
+        return res.json({
+          success: true,
+          msg: "User successfully registered",
+        });
+      } else {
+        res.status(401).send({message: "This user is already registered"})
+      }
 
-      return res.json({
-        success: true,
-        msg: "User successfully registered",
-      });
     } catch (error) {
       res.send(error.message)
     }
@@ -275,7 +284,6 @@ module.exports = {
       } else {
         return res.status(400).send({ message: "Wronng password" });
       }
-
     } catch (error) {
       res.send({message: error.message})
     }

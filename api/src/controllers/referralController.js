@@ -11,16 +11,25 @@ module.exports = {
           affiliate_code
         }
       })
-      Referral.create({
-        name,
-        email,
-        phone,
-        affiliate_code,
-        creation_date: now,
-        comment,
-        manager_id: link.id_users
+      const referral = await Referral.findOne({
+        where: {
+          email
+        }
       })
-      res.status(201).send({message: "Referral successfully stored in DB"})
+      if ( !referral ){
+        Referral.create({
+          name,
+          email,
+          phone,
+          affiliate_code,
+          creation_date: now,
+          comment,
+          manager_id: link.id_users
+        })
+        res.status(201).send({message: "Referral successfully stored in DB"})
+      } else {
+        res.status(401).send({message: `${email} is already registered in our Data Base`})
+      }
     } catch (error) {
       res.send({message: error.message})
     }

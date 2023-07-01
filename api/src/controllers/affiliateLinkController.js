@@ -12,15 +12,25 @@ module.exports = {
         where: {
           email
         }
-    });
-      let today = new Date();
-      let now = today.toLocaleDateString('en-US')
-      await Affiliate_link.create({
-        id_users: user.id,
-        affiliate_code: getCode(10),
-        creation_date: now
       });
-      res.status(200).send({message: "Link created succesfully"})
+      let link = await Affiliate_link.findOne({
+        where: {
+          id_users: user.id
+        }
+      })
+      if ( !link ){
+        let today = new Date();
+        let now = today.toLocaleDateString('en-US')
+        await Affiliate_link.create({
+          id_users: user.id,
+          affiliate_code: getCode(10),
+          creation_date: now
+        });
+        res.status(200).send({message: "Link created succesfully"})
+      } else {
+        res.status(401).send({message: "This user already has an affiliate link asigned"})
+      }
+
     } catch (error) {
       res.status(500).send({ message: error.message})
     }
@@ -31,7 +41,7 @@ module.exports = {
       const { id } = req.params;
       if ( id ){
         const link = await Affiliate_link.findOne({
-          wher: {
+          where: {
             id
           }
         })
@@ -42,6 +52,23 @@ module.exports = {
       }
     } catch (error) {
       res.status(500).send({ message: error.message})
+    }
+  },
+  getAffiliateLink: async (req, res) => {
+    try {
+      const { id } = req.params
+      let link = await Affiliate_link.findOne({
+        where: {
+          id_users: id
+        }
+      })
+      if ( link ){
+        res.status(201).send(link)
+      } else {
+        res.status(500).send({message: `The user identified witn the id ${id} has no affiliate link asigned yet`})
+      } 
+    } catch (error) {
+      res.send(error.message)
     }
   }
 }
