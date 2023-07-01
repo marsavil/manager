@@ -9,9 +9,34 @@ dotenv.config();
 const sender = process.env.EMAIL;
 const CLIENT_HOST = process.env.CLIENT_HOST;
 const EMAIL = process.env.EMAIL;
+const PASSWORD = process.env.PASSWORD
 const ROUNDS = Number(process.env.ROUNDS)
 
 module.exports = {
+  chargeAdmin: async () => {
+    try {
+      let passwordHashed = await bcrypt.hash(PASSWORD, ROUNDS);
+      const admin = await User.findOne({
+        where:{
+          name: 'Admin'
+        }
+      })
+      if (!admin){
+        User.create({
+          name: "Admin",
+          id_type: 1,
+          username: "Admin",
+          email: EMAIL,
+          password: passwordHashed,
+          verified: true
+        })
+      }
+      console.log("Admin user charged")
+    } catch (error) {
+      console.log(error.message)
+    }
+
+  },
   registerUser: async (req, res) => {
     try {
       const { name, id_type, userName, email, password } = req.body;
@@ -105,7 +130,25 @@ module.exports = {
         msg: "User successfully registered",
       });
     } catch (error) {
-      
+      res.send(error.message)
+    }
+  },
+  deleteUser: async (req, res) => {
+    try {
+      const { id } = req.params;
+      let user = await User.findOne({
+        where: {
+          id
+        }
+      })
+      if (user.id_type === 1){
+        return res.status(401).send({message: "This user can't be deleted"})
+      }else{
+        user.destroy()
+        res.status(201).send({message: "User deleted from DB"})
+      }
+    } catch (error) {
+      res.send(error.message)
     }
   },
   confirm: async (req, res) => {

@@ -63,11 +63,11 @@ module.exports = {
       <div id="email___content">
           <img src="https://www.flickr.com/photos/197399024@N05/52623616952/in/dateposted-public/" alt="">
           <h2>Greetings ${name}</h2>
-          <p>Click on the link to confirm your account</p>
+          <p>Click on the link below to confirm your account</p>
           <a
               href="${SERVER}user/confirm/${token}"
               target="_blank"
-          >Confirmar Cuenta</a>
+          >Confirma your account/a>
       </div>
     `;
   },
@@ -80,11 +80,11 @@ module.exports = {
       <div id="email___content">
           <img src="https://www.flickr.com/photos/197399024@N05/52623616952/in/dateposted-public/" alt="">
           <h2>Greetings ${name}</h2>
-          <p>Click on the link below to validate your account. Use ${password} as a password in order to log in. We strongly recomend to change it once you first log in</p>
+          <p>Click on the link below to validate your account. Use ${password} as a password in order to log in. We strongly recomend you to change it once you first log in</p>
           <a
               href="${SERVER}user/confirm/${token}"
               target="_blank"
-          >Confirmar Cuenta</a>
+          >Confirm your account</a>
       </div>
     `;
   }

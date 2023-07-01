@@ -3,6 +3,7 @@ const server = require('./src/app.js');
 const { conn } = require('./src/db.js');
 const { chargeUserTypes } =  require( './src/controllers/userTypeController.js')
 const { chargeChannels } = require('./src/controllers/channelsController.js')
+const { chargeAdmin } = require( './src/controllers/userController.js')
 
 // Syncing all the models at once.
 conn.sync({ force: false }).then(() => {
@@ -11,4 +12,5 @@ conn.sync({ force: false }).then(() => {
   });
   chargeUserTypes()
   chargeChannels()
+  chargeAdmin()
 });
