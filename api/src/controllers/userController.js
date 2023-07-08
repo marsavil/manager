@@ -236,6 +236,46 @@ module.exports = {
       res.send(error.message)
     }
   },
+  restoreUser: async (req, res) => {
+    const { token } = req.body;
+      const data = getTokenData(token);
+      console.log(data)
+      if (data === null){
+        return res.json({
+          success: false,
+          msg: "Error. Data couldn't be acccessed ",
+        });
+      }
+      if (data.message === 'Token expired'){
+        return res.json({
+          success: false,
+          msg: "Your session has expired. Please Login ",
+        });
+      }
+      if(data.id_type === 3){
+        return res.json({
+          success: false,
+          msg: "This is user is not allowed to perform this action"
+        })
+      }
+    try {
+      const { id } = req.params;
+      let user = await User.findOne({
+        where: {
+          id
+        }
+      })
+      if(!user){
+        return res.status(401).send({message: `There i no user asigned to id ${id}`})
+      }else{
+        user.enabled = true
+        user.save()
+        res.status(201).send({message: "User logically enabled in DB"})
+      }
+    } catch (error) {
+      res.send(error.message)
+    }
+  },
   confirm: async (req, res) => {
     try {
       const { token } = req.params;
