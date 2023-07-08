@@ -5,6 +5,7 @@ const { generateRegistrationToken, getTokenData, generateLoginToken } = require(
 const { getTemplate, sendEmail, getRegistrationTemplate } = require("../config/mail.config");
 const { getCode } = require("../config/code.confg")
 const dotenv = require("dotenv");
+const { DatabaseError } = require("sequelize");
 dotenv.config();
 const sender = process.env.EMAIL;
 const CLIENT_HOST = process.env.CLIENT_HOST;
@@ -104,12 +105,43 @@ module.exports = {
   referralToAffiliate: async (req, res) => {
     try {
       const { id } = req.params;
+      const { token } = req.body;
+      const data = getTokenData(token);
+      const userLogged = {
+        id: data.id,
+        email: data.email,
+        id_type: data.id_type,
+        verified: data.verified,
+        username: data.username,
+        name: data.name,
+        last_login: data.last_login,
+        last_logout: data.last_logout,
+        affiliate_code: data.affiliate_code,
+      }
+      if (data === null){
+        return res.json({
+          success: false,
+          msg: "Error. Data couldn't be acccessed ",
+        });
+      }
+      if (data.message === 'Token expired'){
+        return res.json({
+          success: false,
+          msg: "Your session has expired. Please Login ",
+        });
+      }
+      if(userLogged.id_type === 3){
+        return res.json({
+          success: false,
+          msg: "This is user is not allowed to perform this action"
+        })
+      }
       const referral = await Referral.findOne({
         where: {
           id
         }
       });
-      const user = await User.findOne({
+      let user = await User.findOne({
         where: {
           email: referral.email
         }
@@ -126,16 +158,35 @@ module.exports = {
           password: passwordHashed,
           code
         })
+        const token = generateLoginToken(userLogged)
         const email = newUser.email
-        const token = generateRegistrationToken({ email, code });
-        const template = getRegistrationTemplate(newUser.name, defaultPass, token);
+        const tokenRegistration = generateRegistrationToken({ email, code });
+        const template = getRegistrationTemplate(newUser.name, defaultPass, tokenRegistration);
         await sendEmail(email, "Validate your account", template);
         return res.json({
           success: true,
           msg: "User successfully registered",
+          token
         });
       } else {
-        res.status(401).send({message: "This user is already registered"})
+        const token = generateLoginToken(userLogged)
+        if(user.verified === false){
+          const code = user.code
+          let defaultPass = getCode(8)
+          let passwordHashed = await bcrypt.hash(defaultPass, ROUNDS);
+          user.password = passwordHashed
+          const token = generateLoginToken(userLogged)
+          const email = user.email
+          const tokenRegistration = generateRegistrationToken({ email, code });
+          const template = getRegistrationTemplate(user.name, defaultPass, tokenRegistration);
+          await sendEmail(email, "Validate your account", template);
+          return res.json({
+            success: true,
+            msg: "This user is already registered. An email was re sent to verify the account",
+            token
+          })
+        }
+        res.status(401).send({message: "This user is already registered", token})
       }
 
     } catch (error) {
@@ -143,6 +194,27 @@ module.exports = {
     }
   },
   deleteUser: async (req, res) => {
+    const { token } = req.body;
+      const data = getTokenData(token);
+      console.log(data)
+      if (data === null){
+        return res.json({
+          success: false,
+          msg: "Error. Data couldn't be acccessed ",
+        });
+      }
+      if (data.message === 'Token expired'){
+        return res.json({
+          success: false,
+          msg: "Your session has expired. Please Login ",
+        });
+      }
+      if(data.id_type === 3){
+        return res.json({
+          success: false,
+          msg: "This is user is not allowed to perform this action"
+        })
+      }
     try {
       const { id } = req.params;
       let user = await User.findOne({
@@ -150,11 +222,15 @@ module.exports = {
           id
         }
       })
+      if(!user){
+        return res.status(401).send({message: `There i no user asigned to id ${id}`})
+      }
       if (user.id_type === 1){
         return res.status(401).send({message: "This user can't be deleted"})
       }else{
-        user.destroy()
-        res.status(201).send({message: "User deleted from DB"})
+        user.enabled = false
+        user.save()
+        res.status(201).send({message: "User logically deleted from DB"})
       }
     } catch (error) {
       res.send(error.message)
@@ -198,8 +274,27 @@ module.exports = {
     }
   },
   getUsers: async (req, res) => {
-    const { id } = req.query;
-
+    const { id } = req.params;
+    const { token } = req.body;
+    const data = getTokenData(token);
+    if (data === null){
+      return res.json({
+        success: false,
+        msg: "Error. Data couldn't be acccessed ",
+      });
+    }
+    if (data.message === 'Token expired'){
+      return res.json({
+        success: false,
+        msg: "Your session has expired. Please Login ",
+      });
+    }
+    if(data.id_type === 3){
+      return res.json({
+        success: false,
+        msg: "This is user is not allowed to perform this action"
+      })
+    }
     if (id) {
       try {
         const user = await User.findOne({
@@ -207,17 +302,17 @@ module.exports = {
             id,
           },
         });
-        if (!user) res.status(404).send({ message: `No user asigned the ID ${id}` });
-        res.status(200).send(user);
+        if (!user) return res.status(404).send({ message: `No user assigned the ID ${id}` });
+        return res.status(200).send(user);
       } catch (error) {
-        res.status(400).send("oops I did it again");
+        return res.status(400).send("Oops, I did it again");
       }
     } else {
       try {
         const users = await User.findAll();
-        res.json(users);
+        return res.json(users);
       } catch (error) {
-        res.json(error);
+        return res.json(error);
       }
     }
   },
@@ -242,8 +337,11 @@ module.exports = {
           message: "You must confirm your account before loging in. Check your inbox",
         });
       }
+      if(!userDb.enabled){
+        return res.status(400).send({message: 'This user is banned'})
+      }
       const passwordMatch = await bcrypt.compare(password, userDb.password);
-      if (passwordMatch) {
+      if (passwordMatch && userDb.enabled === true) {
         let today = new Date();
         let now = today.toLocaleDateString('en-US')
         userDb.last_login = now;

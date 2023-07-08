@@ -68,7 +68,7 @@ module.exports = {
         res.status(500).send({message: `The user identified witn the id ${id} has no affiliate link asigned yet`})
       } 
     } catch (error) {
-      res.send(error.message)
+      res.send(error.messag)
     }
   }
 }

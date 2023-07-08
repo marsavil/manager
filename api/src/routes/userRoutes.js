@@ -11,6 +11,7 @@ router.get("/", getUsers);
 router.get("/link/:id", getAffiliateLink);
 router.get("/confirm/:token", confirm);
 router.get("/login", loginUser);
+router.get("/:id", getUsers);
 
 
 module.exports = router; 
