@@ -2,7 +2,7 @@ const { User, Affiliate_link, Referral } = require("../db");
 const bcrypt = require("bcrypt");
 const { v4 } = require("uuid");
 const { generateRegistrationToken, getTokenData, generateLoginToken } = require("../config/jwt.config");
-const { getTemplate, sendEmail, getRegistrationTemplate } = require("../config/mail.config");
+const { getTemplate, sendEmail, getRegistrationTemplate, getCreateManagerTemplate, getUpgradeToManagerTemplate } = require("../config/mail.config");
 const { getCode } = require("../config/code.confg")
 const dotenv = require("dotenv");
 const { DatabaseError } = require("sequelize");
@@ -40,9 +40,9 @@ module.exports = {
   },
   registerUser: async (req, res) => {
     try {
-      const { name, id_type, userName, email, password } = req.body;
+      const { name, userName, email, password } = req.body;
 
-      if (!name || !id_type || !userName || !email || !password) {
+      if (!name  || !userName || !email || !password) {
         return res.json({
           success: false,
           msg: "You must fill all the required fields",
@@ -78,7 +78,7 @@ module.exports = {
         let passwordHashed = await bcrypt.hash(password, ROUNDS);
         user = await User.create({
           name,
-          id_type,
+          id_type: 3,
           username: userName,
           email,
           password: passwordHashed,
@@ -425,5 +425,84 @@ module.exports = {
     } catch (error) {
       res.send({message: error.message})
     }
-  }
+  },
+  createManager: async(req, res) => {
+    const { id } = req.params;
+    const { token, name,  userName, email, password } = req.body;
+    const data = getTokenData(token);
+    const userLogged = {
+      id: data.id,
+      email: data.email,
+      id_type: data.id_type,
+      verified: data.verified,
+      username: data.username,
+      name: data.name,
+      last_login: data.last_login,
+      last_logout: data.last_logout,
+      affiliate_code: data.affiliate_code,
+    }
+    if (data === null){
+      return res.status(500).json({
+        success: false,
+        msg: "Error. Data couldn't be acccessed ",
+      });
+    }
+    if (data.message === 'Token expired'){
+      return res.status(401).json({
+        success: false,
+        msg: "Your session has expired. Please Login ",
+      });
+    }
+    if(data.id_type === 3 || data.id_type === 2){
+      const token = generateLoginToken(userLogged)
+      return res.status(401).json({
+        success: false,
+        msg: "This is user is not allowed to perform this action",
+        token
+      })
+    }
+    try {
+      if( id ){
+        const user = await User.findOne({
+          where: {
+            id
+          }
+        })
+        user.id_type = 2;
+        await user.save();
+        const token = generateLoginToken(userLogged)
+        const template = getUpgradeToManagerTemplate(user.name);
+        await sendEmail(email, "Now you are a Manager", template);
+        return res.status(200).send({message: `${user.username} is now a manager`, token})
+      } else {
+        const userDB= await User.findOne({
+          where:{
+            email
+          }
+        })
+        if ( userDB ){
+          const token = generateLoginToken(userLogged)
+          return res.status(400).send({message: `You cannot create this user because there is a user stored in DB with the email ${email}`, token})
+        }
+        const code = v4();
+        let passwordHashed = await bcrypt.hash(password, ROUNDS);
+        const user = await User.create({
+          name,
+          id_type: 2,
+          username: userName,
+          email,
+          password: passwordHashed,
+          code,
+        })
+        const token = generateLoginToken(userLogged)
+        const userEmail = user.email
+        const tokenRegistration = generateRegistrationToken({ userEmail, code });
+        const template = getCreateManagerTemplate(user.name, password, tokenRegistration);
+        await sendEmail(email, "Validate your Mannager account", template);
+        return res.status(200).send({message: `${user.username} is now a manager`, token: token})
+      }
+    } catch (error) {
+      res.status(500).send(error.message)
+    }
+  },
 }

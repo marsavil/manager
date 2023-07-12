@@ -87,5 +87,39 @@ module.exports = {
           >Confirm your account</a>
       </div>
     `;
+  },
+  getCreateManagerTemplate: (name, password, token) => {
+    return `
+      <head>
+          <link rel="stylesheet" href="./style.css">
+      </head>
+      
+      <div id="email___content">
+          <img src="https://www.flickr.com/photos/197399024@N05/52623616952/in/dateposted-public/" alt="">
+          <h2>Greetings ${name}</h2>
+          <p>You have been invited to be part of the manager team. Click on the link below to validate your account. Use ${password} as a password in order to log in. We strongly recomend you to change it once you first log in</p>
+          <a
+              href="${SERVER}user/confirm/${token}"
+              target="_blank"
+          >Confirm your account</a>
+      </div>
+    `;
+  },
+  getUpgradeToManagerTemplate: (name) => {
+    return `
+      <head>
+          <link rel="stylesheet" href="./style.css">
+      </head>
+      
+      <div id="email___content">
+          <img src="https://www.flickr.com/photos/197399024@N05/52623616952/in/dateposted-public/" alt="">
+          <h2>Greetings ${name}</h2>
+          <p>You have been invited to be part of the manager team. Click on the link below to accept the invitation.</p>
+          <a
+              href="${CLIENT_HOST}login"
+              target="_blank"
+          >Log in</a>
+      </div>
+    `;
   }
 }
